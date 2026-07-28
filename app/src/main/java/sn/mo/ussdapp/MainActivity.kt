@@ -13,19 +13,41 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import sn.mo.ussdapp.data.Operator
 import sn.mo.ussdapp.data.Operators
 import sn.mo.ussdapp.data.UssdService
+
+private val AppTypography = Typography(
+    headlineSmall = TextStyle(fontWeight = FontWeight.Bold, fontSize = 26.sp, letterSpacing = 0.2.sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 17.sp),
+    bodyMedium = TextStyle(fontSize = 14.sp),
+    bodySmall = TextStyle(fontSize = 13.sp),
+    labelSmall = TextStyle(fontSize = 12.sp)
+)
+
+private val BackgroundGradient = Brush.linearGradient(
+    colors = listOf(Color(0xFFFFEADB), Color(0xFFFFF8F1), Color(0xFFE1F6FF)),
+    start = Offset(0f, 0f),
+    end = Offset(1000f, 1400f)
+)
 
 class MainActivity : ComponentActivity() {
 
@@ -33,10 +55,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    AppRoot(onServiceClick = { service -> openDialer(service.ussdCode) })
-                }
+            MaterialTheme(typography = AppTypography) {
+                AppRoot(onServiceClick = { service -> openDialer(service.ussdCode) })
             }
         }
     }
@@ -77,6 +97,7 @@ fun AppRoot(onServiceClick: (UssdService) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(BackgroundGradient)
             .statusBarsPadding()
     ) {
         if (selectedOperator == null) {
@@ -92,46 +113,72 @@ fun AppRoot(onServiceClick: (UssdService) -> Unit) {
 }
 
 @Composable
+fun AppLogo(size: androidx.compose.ui.unit.Dp = 56.dp) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Brush.linearGradient(listOf(Color(0xFFFF6600), Color(0xFF1DC8F2)))),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("\uD83D\uDCF2", fontSize = (size.value * 0.5).sp)
+    }
+}
+
+@Composable
 fun HomeScreen(onOperatorClick: (Operator) -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
-        Text("Mes services SIM", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "Choisis un operateur pour lancer un service",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray
-        )
-        Spacer(Modifier.height(20.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AppLogo()
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text("Mes services SIM", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Choisis un operateur",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+        }
+        Spacer(Modifier.height(24.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(Operators.ALL.chunked(2)) { rowOperators ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    rowOperators.forEach { operator ->
-                        OperatorCard(operator, modifier = Modifier.weight(1f), onClick = { onOperatorClick(operator) })
-                    }
-                    if (rowOperators.size == 1) Spacer(Modifier.weight(1f))
-                }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            items(Operators.ALL) { operator ->
+                OperatorCard(operator, onClick = { onOperatorClick(operator) })
             }
         }
     }
 }
 
 @Composable
-fun OperatorCard(operator: Operator, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun OperatorCard(operator: Operator, onClick: () -> Unit) {
     val accent = Color(operator.accentColor)
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFF3F4F6))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 3.dp, shape = RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(22.dp))
+            .background(Color.White)
             .clickable(onClick = onClick)
+            .padding(18.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().height(6.dp).background(accent))
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(operator.label, style = MaterialTheme.typography.titleMedium)
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.6f)))),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("\uD83D\uDCF6", fontSize = 24.sp)
+        }
+        Spacer(Modifier.width(16.dp))
+        Column {
+            Text(operator.label, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(2.dp))
             Text(
                 "${operator.services.size} services",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodySmall,
                 color = Color.Gray
             )
         }
@@ -164,18 +211,20 @@ fun ServiceListScreen(operator: Operator, onBack: () -> Unit, onServiceClick: (U
         Text(operator.label, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(16.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(operator.services) { service ->
                 Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF3F4F6))
+                        .shadow(elevation = 2.dp, shape = RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color.White)
                         .clickable { onServiceClick(service) }
-                        .padding(vertical = 14.dp, horizontal = 16.dp),
+                        .padding(vertical = 20.dp, horizontal = 18.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(service.name)
+                    Text(service.name, style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
