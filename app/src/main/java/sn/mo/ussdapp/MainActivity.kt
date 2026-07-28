@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
 import sn.mo.ussdapp.data.Operator
 import sn.mo.ussdapp.data.Operators
 import sn.mo.ussdapp.data.SimSlot
@@ -28,9 +30,21 @@ class MainActivity : ComponentActivity() {
     private lateinit var dialer: UssdDialer
     private var permissionsGranted by mutableStateOf(false)
 
+    private fun checkPermissions(): Boolean {
+        return UssdDialer.REQUIRED_PERMISSIONS.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        permissionsGranted = checkPermissions()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         dialer = UssdDialer(this)
+        permissionsGranted = checkPermissions()
 
         val permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
