@@ -1,9 +1,12 @@
 package sn.mo.ussdapp
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,9 +17,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import sn.mo.ussdapp.data.Operator
 import sn.mo.ussdapp.data.Operators
 import sn.mo.ussdapp.data.UssdService
@@ -28,7 +34,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                AppRoot(onServiceClick = { service -> openDialer(service.ussdCode) })
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AppRoot(onServiceClick = { service -> openDialer(service.ussdCode) })
+                }
             }
         }
     }
@@ -43,8 +51,34 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppRoot(onServiceClick: (UssdService) -> Unit) {
     var selectedOperator by remember { mutableStateOf<Operator?>(null) }
+    val context = LocalContext.current
+    var backPressedOnce by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    BackHandler(enabled = selectedOperator != null) {
+        selectedOperator = null
+    }
+
+    BackHandler(enabled = selectedOperator == null) {
+        if (backPressedOnce) {
+            (context as? Activity)?.finish()
+        } else {
+            backPressedOnce = true
+            Toast.makeText(context, "Appuie de nouveau pour quitter", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(backPressedOnce) {
+        if (backPressedOnce) {
+            delay(2000)
+            backPressedOnce = false
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+    ) {
         if (selectedOperator == null) {
             HomeScreen(onOperatorClick = { selectedOperator = it })
         } else {
@@ -107,11 +141,25 @@ fun OperatorCard(operator: Operator, modifier: Modifier = Modifier, onClick: () 
 @Composable
 fun ServiceListScreen(operator: Operator, onBack: () -> Unit, onServiceClick: (UssdService) -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
-        Text(
-            "‹ Operateurs",
-            modifier = Modifier.clickable(onClick = onBack),
-            color = Color.Gray
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(onClick = onBack)
+                .padding(vertical = 10.dp, horizontal = 4.dp)
+        ) {
+            Text(
+                "‹",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "Operateurs",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
         Spacer(Modifier.height(12.dp))
         Text(operator.label, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(16.dp))
