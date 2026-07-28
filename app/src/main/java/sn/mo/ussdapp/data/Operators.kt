@@ -51,16 +51,16 @@ object Operators {
         label = "Orange Money",
         accentColor = 0xFFF7941D,
         services = listOf(
-            UssdService("Solde de mes comptes", "#144*1#"),
-            UssdService("Transfert", "#144*2#"),
-            UssdService("Paiement de facture", "#144*3#"),
-            UssdService("Achats : Credit et Pass", "#144*4#"),
-            UssdService("Paiement biens et services", "#144*5#"),
-            UssdService("Dons et Cotisations", "#144*6#"),
-            UssdService("Option", "#144*7#"),
-            UssdService("Banques", "#144*8#"),
-            UssdService("Jeux", "#144*9#"),
-            UssdService("Orange Bank", "#144*10#"),
+            UssdService("Solde de mes comptes", "#144#1#"),
+            UssdService("Transfert", "#144#2#"),
+            UssdService("Paiement de facture", "#144#3#"),
+            UssdService("Achats : Credit et Pass", "#144#4#"),
+            UssdService("Paiement biens et services", "#144#5#"),
+            UssdService("Dons et Cotisations", "#144#6#"),
+            UssdService("Option", "#144#7#"),
+            UssdService("Banques", "#144#8#"),
+            UssdService("Jeux", "#144#9#"),
+            UssdService("Orange Bank", "#144#10#"),
             UssdService("Validation de trans.", "#144#")
         )
     )
