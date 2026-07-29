@@ -70,10 +70,10 @@ object Operators {
         label = "Wave",
         accentColor = 0xFF1DC8F2,
         services = listOf(
-            UssdService("Envoyer de l'argent", "#141*1#"),
-            UssdService("Achat credit", "#141*2#"),
-            UssdService("Achat Woyofal", "#141*3#"),
-            UssdService("Verifiez le solde et transactions", "#141*0#")
+            UssdService("Envoyer de l'argent", "#2171#1#"),
+            UssdService("Achat credit", "#2171#2#"),
+            UssdService("Achat Woyofal", "#2171#3#"),
+            UssdService("Verifiez le solde et transactions", "#2171#0#")
         )
     )
 
