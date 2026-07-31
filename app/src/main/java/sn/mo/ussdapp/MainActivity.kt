@@ -29,10 +29,17 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import sn.mo.ussdapp.data.Operator
 import sn.mo.ussdapp.data.Operators
 import sn.mo.ussdapp.data.UssdService
+import java.net.HttpURLConnection
+import java.net.URL
+
+const val CURRENT_VERSION = "1"
 
 private val AppTypography = Typography(
     headlineSmall = TextStyle(fontWeight = FontWeight.Bold, fontSize = 26.sp, letterSpacing = 0.2.sp),
@@ -48,6 +55,29 @@ private val BackgroundGradient = Brush.linearGradient(
     start = Offset(0f, 0f),
     end = Offset(1000f, 1400f)
 )
+
+suspend fun checkForUpdate(): String? = withContext(Dispatchers.IO) {
+    try {
+        val url = URL("https://api.github.com/repos/Marketing100/ussd-app/releases/latest")
+        val connection = url.openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("Accept", "application/vnd.github+json")
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+
+        val responseCode = connection.responseCode
+        if (responseCode != 200) return@withContext null
+
+        val body = connection.inputStream.bufferedReader().use { it.readText() }
+        val json = JSONObject(body)
+        val tag = json.optString("tag_name")
+        val htmlUrl = json.optString("html_url")
+
+        if (tag.isNotEmpty() && tag != CURRENT_VERSION) htmlUrl else null
+    } catch (e: Exception) {
+        null
+    }
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -73,6 +103,11 @@ fun AppRoot(onServiceClick: (UssdService) -> Unit) {
     var selectedOperator by remember { mutableStateOf<Operator?>(null) }
     val context = LocalContext.current
     var backPressedOnce by remember { mutableStateOf(false) }
+    var updateUrl by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        updateUrl = checkForUpdate()
+    }
 
     BackHandler(enabled = selectedOperator != null) {
         selectedOperator = null
@@ -100,14 +135,51 @@ fun AppRoot(onServiceClick: (UssdService) -> Unit) {
             .background(BackgroundGradient)
             .statusBarsPadding()
     ) {
-        if (selectedOperator == null) {
-            HomeScreen(onOperatorClick = { selectedOperator = it })
-        } else {
-            ServiceListScreen(
-                operator = selectedOperator!!,
-                onBack = { selectedOperator = null },
-                onServiceClick = onServiceClick
-            )
+        Column(modifier = Modifier.fillMaxSize()) {
+            updateUrl?.let { url ->
+                UpdateBanner(
+                    onUpdateClick = {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    }
+                )
+            }
+
+            if (selectedOperator == null) {
+                HomeScreen(onOperatorClick = { selectedOperator = it })
+            } else {
+                ServiceListScreen(
+                    operator = selectedOperator!!,
+                    onBack = { selectedOperator = null },
+                    onServiceClick = onServiceClick
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun UpdateBanner(onUpdateClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFF1B1E23))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Text(
+            "Nouvelle version disponible",
+            color = Color.White,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(8.dp))
+        Button(
+            onClick = onUpdateClick,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6600))
+        ) {
+            Text("Mettre a jour")
         }
     }
 }
