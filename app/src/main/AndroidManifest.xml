@@ -3,7 +3,9 @@
 
     <application
         android:allowBackup="true"
-        android:label="Mes services SIM"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="SimEclair"
         android:theme="@style/Theme.UssdApp"
         android:supportsRtl="true">
 
