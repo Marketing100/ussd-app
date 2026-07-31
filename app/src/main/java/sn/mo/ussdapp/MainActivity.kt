@@ -132,7 +132,7 @@ fun HomeScreen(onOperatorClick: (Operator) -> Unit) {
             AppLogo()
             Spacer(Modifier.width(14.dp))
             Column {
-                Text("Mes services SIM", style = MaterialTheme.typography.headlineSmall)
+                Text("SimEclair", style = MaterialTheme.typography.headlineSmall)
                 Text(
                     "Choisis un operateur",
                     style = MaterialTheme.typography.bodySmall,
