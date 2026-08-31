@@ -1,6 +1,7 @@
 package sn.mo.ussdapp
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -8,8 +9,10 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,19 +42,28 @@ import sn.mo.ussdapp.data.UssdService
 import java.net.HttpURLConnection
 import java.net.URL
 
-const val CURRENT_VERSION = "1"
+const val CURRENT_VERSION = "2"
+const val DOWNLOAD_LINK = "https://github.com/Marketing100/ussd-app/releases/latest/download/app-debug.apk"
 
-private val AppTypography = Typography(
-    headlineSmall = TextStyle(fontWeight = FontWeight.Bold, fontSize = 26.sp, letterSpacing = 0.2.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 17.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp),
-    bodySmall = TextStyle(fontSize = 13.sp),
-    labelSmall = TextStyle(fontSize = 12.sp)
+enum class ThemeMode { LIGHT, DARK, AUTO }
+enum class TextSize(val scale: Float) { SMALL(0.85f), NORMAL(1f), LARGE(1.15f) }
+
+private fun buildTypography(scale: Float) = Typography(
+    headlineSmall = TextStyle(fontWeight = FontWeight.Bold, fontSize = (26 * scale).sp, letterSpacing = 0.2.sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = (20 * scale).sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = (17 * scale).sp),
+    bodyMedium = TextStyle(fontSize = (14 * scale).sp),
+    bodySmall = TextStyle(fontSize = (13 * scale).sp),
+    labelSmall = TextStyle(fontSize = (12 * scale).sp)
 )
 
-private val BackgroundGradient = Brush.linearGradient(
+private val LightGradient = Brush.linearGradient(
     colors = listOf(Color(0xFFFFEADB), Color(0xFFFFF8F1), Color(0xFFE1F6FF)),
+    start = Offset(0f, 0f),
+    end = Offset(1000f, 1400f)
+)
+private val DarkGradient = Brush.linearGradient(
+    colors = listOf(Color(0xFF14161B), Color(0xFF1B1E23)),
     start = Offset(0f, 0f),
     end = Offset(1000f, 1400f)
 )
@@ -65,8 +77,7 @@ suspend fun checkForUpdate(): String? = withContext(Dispatchers.IO) {
         connection.connectTimeout = 5000
         connection.readTimeout = 5000
 
-        val responseCode = connection.responseCode
-        if (responseCode != 200) return@withContext null
+        if (connection.responseCode != 200) return@withContext null
 
         val body = connection.inputStream.bufferedReader().use { it.readText() }
         val json = JSONObject(body)
@@ -79,14 +90,82 @@ suspend fun checkForUpdate(): String? = withContext(Dispatchers.IO) {
     }
 }
 
+fun loadThemeMode(context: Context): ThemeMode {
+    val prefs = context.getSharedPreferences("simeclair_settings", Context.MODE_PRIVATE)
+    return ThemeMode.values()[prefs.getInt("theme_mode", ThemeMode.AUTO.ordinal)]
+}
+
+fun saveThemeMode(context: Context, mode: ThemeMode) {
+    context.getSharedPreferences("simeclair_settings", Context.MODE_PRIVATE)
+        .edit().putInt("theme_mode", mode.ordinal).apply()
+}
+
+fun loadTextSize(context: Context): TextSize {
+    val prefs = context.getSharedPreferences("simeclair_settings", Context.MODE_PRIVATE)
+    return TextSize.values()[prefs.getInt("text_size", TextSize.NORMAL.ordinal)]
+}
+
+fun saveTextSize(context: Context, size: TextSize) {
+    context.getSharedPreferences("simeclair_settings", Context.MODE_PRIVATE)
+        .edit().putInt("text_size", size.ordinal).apply()
+}
+
+fun shareApp(context: Context) {
+    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, "Telecharge SimEclair, l'appli des codes USSD : $DOWNLOAD_LINK")
+    }
+    context.startActivity(Intent.createChooser(sendIntent, "Partager SimEclair"))
+}
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
-            MaterialTheme(typography = AppTypography) {
-                AppRoot(onServiceClick = { service -> openDialer(service.ussdCode) })
+            var themeMode by remember { mutableStateOf(loadThemeMode(this)) }
+            var textSize by remember { mutableStateOf(loadTextSize(this)) }
+            val systemDark = isSystemInDarkTheme()
+            val isDark = when (themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.AUTO -> systemDark
+            }
+
+            val colorScheme = if (isDark) {
+                darkColorScheme(
+                    primary = Color(0xFFFF8A33),
+                    background = Color(0xFF14161B),
+                    surface = Color(0xFF1E2128),
+                    onSurface = Color.White,
+                    onSurfaceVariant = Color(0xFFAAAAAA)
+                )
+            } else {
+                lightColorScheme(
+                    primary = Color(0xFFFF6600),
+                    background = Color(0xFFFFF8F1),
+                    surface = Color.White,
+                    onSurface = Color(0xFF1B1E23),
+                    onSurfaceVariant = Color(0xFF7A8290)
+                )
+            }
+
+            MaterialTheme(colorScheme = colorScheme, typography = buildTypography(textSize.scale)) {
+                AppRoot(
+                    isDark = isDark,
+                    themeMode = themeMode,
+                    textSize = textSize,
+                    onThemeModeChange = { mode ->
+                        themeMode = mode
+                        saveThemeMode(this, mode)
+                    },
+                    onTextSizeChange = { size ->
+                        textSize = size
+                        saveTextSize(this, size)
+                    },
+                    onServiceClick = { service -> openDialer(service.ussdCode) }
+                )
             }
         }
     }
@@ -99,8 +178,16 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppRoot(onServiceClick: (UssdService) -> Unit) {
+fun AppRoot(
+    isDark: Boolean,
+    themeMode: ThemeMode,
+    textSize: TextSize,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onTextSizeChange: (TextSize) -> Unit,
+    onServiceClick: (UssdService) -> Unit
+) {
     var selectedOperator by remember { mutableStateOf<Operator?>(null) }
+    var showOptions by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var backPressedOnce by remember { mutableStateOf(false) }
     var updateUrl by remember { mutableStateOf<String?>(null) }
@@ -132,10 +219,24 @@ fun AppRoot(onServiceClick: (UssdService) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundGradient)
+            .background(if (isDark) DarkGradient else LightGradient)
             .statusBarsPadding()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                RoundIconButton(onClick = { shareApp(context) }) {
+                    ShareIcon(tint = MaterialTheme.colorScheme.onSurface)
+                }
+                RoundIconButton(onClick = { showOptions = true }) {
+                    Text("\u2699\uFE0F", fontSize = 18.sp)
+                }
+            }
+
             updateUrl?.let { url ->
                 UpdateBanner(
                     onUpdateClick = {
@@ -154,6 +255,98 @@ fun AppRoot(onServiceClick: (UssdService) -> Unit) {
                 )
             }
         }
+
+        if (showOptions) {
+            OptionsDialog(
+                themeMode = themeMode,
+                textSize = textSize,
+                onThemeModeChange = onThemeModeChange,
+                onTextSizeChange = onTextSizeChange,
+                onDismiss = { showOptions = false }
+            )
+        }
+    }
+}
+
+@Composable
+fun RoundIconButton(onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        content()
+    }
+}
+
+@Composable
+fun ShareIcon(tint: Color) {
+    Canvas(modifier = Modifier.size(20.dp)) {
+        val u = size.width / 24f
+        val strokeW = 1.6f * u
+        val a = Offset(6f * u, 12f * u)
+        val b = Offset(18f * u, 6f * u)
+        val c = Offset(18f * u, 18f * u)
+        drawLine(tint, a, b, strokeWidth = strokeW)
+        drawLine(tint, a, c, strokeWidth = strokeW)
+        val r = 2.4f * u
+        drawCircle(tint, r, a)
+        drawCircle(tint, r, b)
+        drawCircle(tint, r, c)
+    }
+}
+
+@Composable
+fun OptionsDialog(
+    themeMode: ThemeMode,
+    textSize: TextSize,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onTextSizeChange: (TextSize) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Fermer") }
+        },
+        title = { Text("Options") },
+        text = {
+            Column {
+                Text("Theme", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OptionChip("Clair", themeMode == ThemeMode.LIGHT) { onThemeModeChange(ThemeMode.LIGHT) }
+                    OptionChip("Sombre", themeMode == ThemeMode.DARK) { onThemeModeChange(ThemeMode.DARK) }
+                    OptionChip("Auto", themeMode == ThemeMode.AUTO) { onThemeModeChange(ThemeMode.AUTO) }
+                }
+                Spacer(Modifier.height(20.dp))
+                Text("Taille du texte", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OptionChip("Petit", textSize == TextSize.SMALL) { onTextSizeChange(TextSize.SMALL) }
+                    OptionChip("Normal", textSize == TextSize.NORMAL) { onTextSizeChange(TextSize.NORMAL) }
+                    OptionChip("Grand", textSize == TextSize.LARGE) { onTextSizeChange(TextSize.LARGE) }
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun OptionChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val bg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val fg = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(bg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+    ) {
+        Text(label, color = fg, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -199,16 +392,16 @@ fun AppLogo(size: androidx.compose.ui.unit.Dp = 56.dp) {
 
 @Composable
 fun HomeScreen(onOperatorClick: (Operator) -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AppLogo()
             Spacer(Modifier.width(14.dp))
             Column {
-                Text("SimEclair", style = MaterialTheme.typography.headlineSmall)
+                Text("SimEclair", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
                 Text(
                     "Choisis un operateur",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -231,7 +424,7 @@ fun OperatorCard(operator: Operator, onClick: () -> Unit) {
             .fillMaxWidth()
             .shadow(elevation = 3.dp, shape = RoundedCornerShape(22.dp))
             .clip(RoundedCornerShape(22.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(18.dp)
     ) {
@@ -246,12 +439,12 @@ fun OperatorCard(operator: Operator, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(16.dp))
         Column {
-            Text(operator.label, style = MaterialTheme.typography.titleLarge)
+            Text(operator.label, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(2.dp))
             Text(
                 "${operator.services.size} services",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -259,7 +452,7 @@ fun OperatorCard(operator: Operator, onClick: () -> Unit) {
 
 @Composable
 fun ServiceListScreen(operator: Operator, onBack: () -> Unit, onServiceClick: (UssdService) -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -280,7 +473,7 @@ fun ServiceListScreen(operator: Operator, onBack: () -> Unit, onServiceClick: (U
             )
         }
         Spacer(Modifier.height(12.dp))
-        Text(operator.label, style = MaterialTheme.typography.headlineSmall)
+        Text(operator.label, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(16.dp))
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -291,12 +484,12 @@ fun ServiceListScreen(operator: Operator, onBack: () -> Unit, onServiceClick: (U
                         .fillMaxWidth()
                         .shadow(elevation = 2.dp, shape = RoundedCornerShape(18.dp))
                         .clip(RoundedCornerShape(18.dp))
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.surface)
                         .clickable { onServiceClick(service) }
                         .padding(vertical = 20.dp, horizontal = 18.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(service.name, style = MaterialTheme.typography.titleMedium)
+                    Text(service.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
